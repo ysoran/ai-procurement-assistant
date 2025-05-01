@@ -1,13 +1,9 @@
-// Project: AI-Powered Procurement Assistant (Full MVP with Backend Integration)
-// This file includes a React + TypeScript + Tailwind frontend dashboard
-// integrated with a FastAPI backend (to be built separately) for email parsing and AI insights.
-
 import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, FileText, Zap, Settings } from "lucide-react";
 import axios from "axios";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface ParsedEmail {
   subject: string;
@@ -24,6 +20,9 @@ interface Insight {
 export default function ProcurementAssistantDashboard() {
   const [emails, setEmails] = useState<ParsedEmail[]>([]);
   const [insights, setInsights] = useState<Insight[]>([]);
+  const [loading, setLoading] = useState<boolean>(false); // Loading state
+  const [error, setError] = useState<string | null>(null); // Error state
+  const [activeTab, setActiveTab] = useState("dashboard"); // Active tab state
 
   useEffect(() => {
     fetchParsedEmails();
@@ -31,99 +30,123 @@ export default function ProcurementAssistantDashboard() {
   }, []);
 
   const fetchParsedEmails = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await axios.get("http://localhost:8000/api/emails");
       setEmails(response.data);
     } catch (error) {
-      console.error("Error fetching emails:", error);
+      setError("Error fetching emails. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const fetchInsights = async () => {
+    setLoading(true);
+    setError(null);
     try {
       const response = await axios.get("http://localhost:8000/api/insights");
       setInsights(response.data);
     } catch (error) {
-      console.error("Error fetching insights:", error);
+      setError("Error fetching insights. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-[#1a1a1a] p-6 text-gray-800 dark:text-white">
       <header className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">AI Procurement Assistant</h1>
-        <Button variant="default" onClick={fetchParsedEmails}>Refresh Emails</Button>
+        <h1 className="text-3xl font-bold text-blue-600">AI Procurement Assistant</h1>
+        <Button variant="default" onClick={fetchParsedEmails} className="bg-blue-600 text-white hover:bg-blue-500">
+          {loading ? <Loader className="animate-spin h-5 w-5" /> : "Refresh Emails"}
+        </Button>
       </header>
 
-      <Tabs defaultValue="dashboard" className="w-full">
+      <Tabs activeTab={activeTab} onTabChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="dashboard">
+          <TabsTrigger tabValue="dashboard" activeTab={activeTab} onTabChange={setActiveTab}>
             <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
           </TabsTrigger>
-          <TabsTrigger value="emails">
+          <TabsTrigger tabValue="emails" activeTab={activeTab} onTabChange={setActiveTab}>
             <FileText className="mr-2 h-4 w-4" /> Emails
           </TabsTrigger>
-          <TabsTrigger value="insights">
+          <TabsTrigger tabValue="insights" activeTab={activeTab} onTabChange={setActiveTab}>
             <Zap className="mr-2 h-4 w-4" /> AI Insights
           </TabsTrigger>
-          <TabsTrigger value="settings">
+          <TabsTrigger tabValue="settings" activeTab={activeTab} onTabChange={setActiveTab}>
             <Settings className="mr-2 h-4 w-4" /> Settings
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard">
+        <TabsContent tabValue="dashboard" activeTab={activeTab}>
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-2">Weekly Overview</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Graph of procurement value, supplier count, and processing time.
               </p>
-              <div className="mt-4 h-40 bg-gray-200 dark:bg-gray-800 rounded-xl" />
+              <div className="mt-4 h-40 bg-gray-200 dark:bg-gray-800 rounded-xl"></div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="emails">
+        <TabsContent tabValue="emails" activeTab={activeTab}>
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-2">Parsed Emails</h2>
-              {emails.map((email, index) => (
-                <div key={index} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow mb-4">
-                  <p className="font-medium">Subject: {email.subject}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{email.content}</p>
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-2">Extracted: {email.extracted}</p>
+              {loading ? (
+                <div className="flex justify-center items-center mt-4">
+                  <Loader className="animate-spin h-6 w-6 text-blue-600" />
                 </div>
-              ))}
+              ) : error ? (
+                <div className="flex justify-center items-center mt-4 text-red-600">
+                  <XCircle className="mr-2" /> {error}
+                </div>
+              ) : (
+                emails.map((email, index) => (
+                  <div key={index} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow mb-4">
+                    <p className="font-medium text-lg">{email.subject}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{email.content}</p>
+                    <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-2">Extracted: {email.extracted}</p>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="insights">
+        <TabsContent tabValue="insights" activeTab={activeTab}>
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-2">AI-Powered Insights</h2>
-              {insights.map((insight, index) => (
-                <div key={index} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow mb-4">
-                  <p className="font-medium">Risk Level: {insight.riskLevel}</p>
-                  <p className="text-sm">{insight.summary}</p>
-                  <ul className="mt-2 list-disc list-inside text-sm">
-                    {insight.suggestions.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
-                  </ul>
+              {insights.length === 0 ? (
+                <div className="flex justify-center items-center mt-4 text-gray-500">
+                  <Loader className="animate-spin h-6 w-6 text-blue-600" />
                 </div>
-              ))}
+              ) : (
+                insights.map((insight, index) => (
+                  <div key={index} className="bg-white dark:bg-gray-900 p-4 rounded-xl shadow mb-4">
+                    <p className="font-medium text-lg">{insight.summary}</p>
+                    <p className="text-sm text-yellow-500 dark:text-yellow-400">Risk Level: {insight.riskLevel}</p>
+                    <ul className="text-sm text-gray-600 dark:text-gray-300">
+                      {insight.suggestions.map((suggestion, index) => (
+                        <li key={index}>- {suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="settings">
+        <TabsContent tabValue="settings" activeTab={activeTab}>
           <Card>
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold mb-2">Settings</h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Configure AI model, ERP endpoints, or email parsing rules.
-              </p>
+              {/* Add settings content */}
             </CardContent>
           </Card>
         </TabsContent>

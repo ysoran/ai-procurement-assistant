@@ -1,8 +1,13 @@
-# main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+import spacy
+from spacy import displacy
+from spacy.matcher import Matcher
+
+# Load spaCy's English model
+nlp = spacy.load("en_core_web_sm")
 
 app = FastAPI()
 
@@ -26,17 +31,40 @@ class Insight(BaseModel):
     riskLevel: str
     suggestions: List[str]
 
+# AI-powered email parsing function
+def parse_email(content: str) -> str:
+    # Process the email content with spaCy NLP model
+    doc = nlp(content)
+    
+    # Initialize the matcher
+    matcher = Matcher(nlp.vocab)
+    
+    # Define pattern to extract product or service names (e.g., capitalized words)
+    pattern = [{"is_upper": True}]
+    matcher.add("PRODUCT_PATTERN", [pattern])
+    
+    # Find matches in the email content
+    matches = matcher(doc)
+    
+    extracted_info = []
+    for match_id, start, end in matches:
+        span = doc[start:end]
+        extracted_info.append(span.text)
+    
+    # You can also add more logic here to extract dates, quantities, etc.
+    return ", ".join(extracted_info) if extracted_info else "No relevant information found"
+
 # Sample data
 parsed_emails = [
     ParsedEmail(
         subject="Request for Quotation - Valve #4832",
         content="Dear supplier, please provide a quote for the attached valve specs.",
-        extracted="Quote request for valve #4832"
+        extracted=parse_email("Dear supplier, please provide a quote for the attached valve specs.")
     ),
     ParsedEmail(
         subject="Purchase Order Confirmation",
-        content="Your PO for steel coils has been confirmed.",
-        extracted="PO confirmation for steel coils"
+        content="Your PO for steel coils has been confirmed. The delivery is scheduled for next week.",
+        extracted=parse_email("Your PO for steel coils has been confirmed. The delivery is scheduled for next week.")
     )
 ]
 
