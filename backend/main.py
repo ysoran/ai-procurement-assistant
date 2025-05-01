@@ -125,6 +125,13 @@ def fetch_emails():
             doc = nlp(content)
             summary = doc[:20].text
 
+            # Update parsed_emails list
+            parsed_emails.append({
+                "subject": subject or "(No Subject)",
+                "content": content,
+                "extracted": summary.strip()
+            })
+
             fetched.append({
                 "subject": subject or "(No Subject)",
                 "content": content,
