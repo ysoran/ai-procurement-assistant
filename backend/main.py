@@ -1,17 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List
 import spacy
-from spacy import displacy
-from spacy.matcher import Matcher
+import imaplib
+import email
+import os
+from dotenv import load_dotenv
 
-# Load spaCy's English model
-nlp = spacy.load("en_core_web_sm")
+load_dotenv()
 
 app = FastAPI()
 
-# Allow frontend to connect locally
+# Allow frontend to access backend (CORS settings)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,7 +20,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Sample models
+# Load spaCy model for NLP analysis
+nlp = spacy.load("en_core_web_sm")
+
+# Sample in-memory email database
+parsed_emails = [
+    {
+        "subject": "Request for Quote - Steel Bolts",
+        "content": "Hi, please send us your best price for 1000 steel bolts. Needed urgently.",
+        "extracted": "Request for 1000 steel bolts"
+    },
+    {
+        "subject": "Monthly Report",
+        "content": "Attached is the procurement summary report for April.",
+        "extracted": "Procurement summary report for April"
+    }
+]
+
+# Response schemas
 class ParsedEmail(BaseModel):
     subject: str
     content: str
@@ -29,66 +46,92 @@ class ParsedEmail(BaseModel):
 class Insight(BaseModel):
     summary: str
     riskLevel: str
-    suggestions: List[str]
+    suggestions: list[str]
 
-# AI-powered email parsing function
-def parse_email(content: str) -> str:
-    # Process the email content with spaCy NLP model
-    doc = nlp(content)
-    
-    # Initialize the matcher
-    matcher = Matcher(nlp.vocab)
-    
-    # Define pattern to extract product or service names (e.g., capitalized words)
-    pattern = [{"is_upper": True}]
-    matcher.add("PRODUCT_PATTERN", [pattern])
-    
-    # Find matches in the email content
-    matches = matcher(doc)
-    
-    extracted_info = []
-    for match_id, start, end in matches:
-        span = doc[start:end]
-        extracted_info.append(span.text)
-    
-    # You can also add more logic here to extract dates, quantities, etc.
-    return ", ".join(extracted_info) if extracted_info else "No relevant information found"
-
-# Sample data
-parsed_emails = [
-    ParsedEmail(
-        subject="Request for Quotation - Valve #4832",
-        content="Dear supplier, please provide a quote for the attached valve specs.",
-        extracted=parse_email("Dear supplier, please provide a quote for the attached valve specs.")
-    ),
-    ParsedEmail(
-        subject="Purchase Order Confirmation",
-        content="Your PO for steel coils has been confirmed. The delivery is scheduled for next week.",
-        extracted=parse_email("Your PO for steel coils has been confirmed. The delivery is scheduled for next week.")
-    )
-]
-
-insights = [
-    Insight(
-        summary="Potential price surge detected in copper suppliers.",
-        riskLevel="High",
-        suggestions=[
-            "Lock current prices with key vendors.",
-            "Explore alternative suppliers in Asia.",
-            "Schedule internal budget review."
-        ]
-    ),
-    Insight(
-        summary="No delays expected from current suppliers this week.",
-        riskLevel="Low",
-        suggestions=["Proceed with planned purchases."]
-    )
-]
-
-@app.get("/api/emails", response_model=List[ParsedEmail])
+@app.get("/api/emails", response_model=list[ParsedEmail])
 def get_emails():
     return parsed_emails
 
-@app.get("/api/insights", response_model=List[Insight])
+@app.get("/api/insights", response_model=list[Insight])
 def get_insights():
+    insights = []
+    for email in parsed_emails:
+        doc = nlp(email["content"])
+        named_entities = len(doc.ents)
+        word_count = len(doc)
+        suspicious_keywords = [kw for kw in ["urgent", "immediately", "asap"] if kw in email["content"].lower()]
+
+        # Simple ML-like logic for risk scoring
+        risk_score = 0
+        if named_entities > 3:
+            risk_score += 1
+        if len(suspicious_keywords) > 0:
+            risk_score += 1
+        if word_count < 10:
+            risk_score += 1
+
+        if risk_score >= 2:
+            risk = "High"
+        elif risk_score == 1:
+            risk = "Medium"
+        else:
+            risk = "Low"
+
+        suggestions = []
+        if risk == "High":
+            suggestions.append("Verify sender identity")
+            suggestions.append("Double-check contract terms")
+        elif risk == "Medium":
+            suggestions.append("Review request with manager")
+
+        insights.append(Insight(
+            summary=f"Email about '{email['subject']}' has {named_entities} named entities and {len(suspicious_keywords)} suspicious keywords.",
+            riskLevel=risk,
+            suggestions=suggestions
+        ))
+
     return insights
+
+@app.get("/api/fetch-emails", response_model=list[ParsedEmail])
+def fetch_emails():
+    EMAIL = os.getenv("EMAIL_ADDRESS")
+    PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+    try:
+        mail = imaplib.IMAP4_SSL("imap.gmail.com")
+        mail.login(EMAIL, PASSWORD)
+        mail.select("inbox")
+
+        # Search for all emails
+        status, messages = mail.search(None, "ALL")
+        email_ids = messages[0].split()[-5:]  # Last 5 emails
+
+        fetched = []
+        for e_id in email_ids:
+            status, msg_data = mail.fetch(e_id, "(RFC822)")
+            raw_email = msg_data[0][1]
+            msg = email.message_from_bytes(raw_email)
+
+            subject = msg["subject"]
+            content = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        content = part.get_payload(decode=True).decode(errors="ignore")
+                        break
+            else:
+                content = msg.get_payload(decode=True).decode(errors="ignore")
+
+            doc = nlp(content)
+            summary = doc[:20].text
+
+            fetched.append({
+                "subject": subject or "(No Subject)",
+                "content": content,
+                "extracted": summary.strip()
+            })
+
+        return fetched
+
+    except Exception as e:
+        return [{"subject": "Error", "content": str(e), "extracted": ""}]

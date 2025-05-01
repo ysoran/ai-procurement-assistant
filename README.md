@@ -159,7 +159,6 @@ This will run the frontend at `http://localhost:3000`.
 
 - **`main.py`**: FastAPI app that exposes API endpoints for email parsing and AI insights.
 - **`requirements.txt`**: Python dependencies required for the backend.
-- **`models`** (optional): This folder can be used for any machine learning models you create for NLP, insights generation, etc.
 
 ### Frontend (`/frontend`)
 
