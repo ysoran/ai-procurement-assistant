@@ -1,4 +1,3 @@
-import React from "react";
 import ProcurementAssistantDashboard from "./pages/ProcurementAssistantDashboard";
 
 function App() {

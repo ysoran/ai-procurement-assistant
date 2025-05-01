@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, FileText, Zap, Settings } from "lucide-react";
+import { LayoutDashboard, FileText, Zap, Settings, Loader, XCircle } from "lucide-react";
 import axios from "axios";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -59,9 +59,6 @@ export default function ProcurementAssistantDashboard() {
     <div className="min-h-screen bg-gray-100 dark:bg-[#1a1a1a] p-6 text-gray-800 dark:text-white">
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-blue-600">AI Procurement Assistant</h1>
-        <Button variant="default" onClick={fetchParsedEmails} className="bg-blue-600 text-white hover:bg-blue-500">
-          {loading ? <Loader className="animate-spin h-5 w-5" /> : "Refresh Emails"}
-        </Button>
       </header>
 
       <Tabs activeTab={activeTab} onTabChange={setActiveTab} className="w-full">
@@ -74,9 +71,6 @@ export default function ProcurementAssistantDashboard() {
           </TabsTrigger>
           <TabsTrigger tabValue="insights" activeTab={activeTab} onTabChange={setActiveTab}>
             <Zap className="mr-2 h-4 w-4" /> AI Insights
-          </TabsTrigger>
-          <TabsTrigger tabValue="settings" activeTab={activeTab} onTabChange={setActiveTab}>
-            <Settings className="mr-2 h-4 w-4" /> Settings
           </TabsTrigger>
         </TabsList>
 
@@ -138,15 +132,6 @@ export default function ProcurementAssistantDashboard() {
                   </div>
                 ))
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent tabValue="settings" activeTab={activeTab}>
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold mb-2">Settings</h2>
-              {/* Add settings content */}
             </CardContent>
           </Card>
         </TabsContent>

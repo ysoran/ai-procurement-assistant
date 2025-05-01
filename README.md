@@ -61,7 +61,7 @@ Create and activate a virtual environment for the Python backend:
 ```bash
 python -m venv venv
 # On Windows
-venv\Scriptsctivate
+venv\Scripts\activate
 # On macOS/Linux
 source venv/bin/activate
 ```
