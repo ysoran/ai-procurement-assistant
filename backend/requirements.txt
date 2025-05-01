@@ -1,0 +1,6 @@
+flask
+spacy
+requests
+nltk
+sqlalchemy
+# Add other dependencies here
